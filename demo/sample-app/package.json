@@ -1,0 +1,14 @@
+{
+  "name": "sample-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "egressmap demo: one normal dependency from npm, one whose install script phones home",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "color-spinner": "file:vendor/color-spinner-2.4.1.tgz",
+    "left-pad": "1.3.0"
+  }
+}

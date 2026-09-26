@@ -1,0 +1,10 @@
+{
+  "name": "color-spinner",
+  "version": "2.4.1",
+  "description": "Demo fixture for egressmap: an install script that phones home",
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "node setup.js"
+  },
+  "license": "MIT"
+}

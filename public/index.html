@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>egressmap</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%233fd8ff' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%235dffb0'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --panel: rgba(9, 13, 27, 0.74);
+    --line: rgba(255, 255, 255, 0.08);
+    --text: #e9edf9;
+    --muted: #8b95b2;
+    --cyan: #3fd8ff;
+    --mint: #5dffb0;
+    --red: #ff3b52;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; color: var(--text); font-family: var(--sans);
+    background: radial-gradient(1100px 760px at 34% 48%, #0c1838 0%, #060b19 55%, #03050b 100%);
+  }
+  body.film { cursor: none; }
+  /* Recording mode: bigger type so the UI survives being watched on a phone. */
+  body.film .row .h { font-size: 17px; }
+  body.film .row .sub { font-size: 14px; }
+  body.film .row .r { font-size: 14px; }
+  body.film .stat b { font-size: 30px; }
+  body.film #toast { min-width: 460px; padding: 20px 28px; }
+  body.film #toast .t1 { font-size: 16px; }
+  body.film #toast .t2 { font-size: 36px; }
+  body.film #toast .t3 { font-size: 16px; }
+  body.film .glabel .in { font-size: 15px; padding: 4px 10px; }
+  body.film #cmd { font-size: 16px; }
+  body.film .logo { font-size: 28px; }
+  #globe { position: absolute; inset: 0 400px 0 0; }
+
+  #brand { position: absolute; left: 28px; top: 24px; z-index: 5; }
+  .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 24px; letter-spacing: -0.02em; }
+  .logo svg { width: 30px; height: 30px; }
+  .status { margin-top: 10px; display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 12px var(--mint); }
+  .dot.live { animation: pulse 1.4s ease-in-out infinite; }
+  .dot.done { background: #6b7280; box-shadow: none; animation: none; }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+  #cmd { font-family: var(--mono); font-size: 13px; color: var(--text); background: rgba(255,255,255,0.07); border: 1px solid var(--line); padding: 3px 8px; border-radius: 6px; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #elapsed { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  #panel {
+    position: absolute; right: 20px; top: 20px; bottom: 20px; width: 360px; z-index: 5;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.45);
+  }
+  .panel-head { padding: 18px 20px 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px 16px 14px; }
+  .stat { background: rgba(255,255,255,0.035); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .stat b { display: block; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .stat span { font-size: 12px; color: var(--muted); }
+  .stat.blocked.on { border-color: rgba(255,59,82,0.55); background: rgba(255,59,82,0.12); }
+  .stat.blocked.on b { color: var(--red); }
+
+  #hosts { list-style: none; margin: 0; padding: 4px 10px 10px; overflow: hidden; flex: 1; }
+  .row {
+    display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+    padding: 10px 10px; border-radius: 10px; margin-bottom: 4px;
+    transition: transform 0.35s cubic-bezier(.2,.9,.3,1.2), opacity 0.35s, background 0.6s;
+  }
+  .row.enter { transform: translateX(30px); opacity: 0; }
+  .row.flash { background: rgba(63,216,255,0.13); }
+  .row .d { width: 9px; height: 9px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 10px var(--cyan); }
+  .row .h { font-family: var(--mono); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .sub { font-size: 12px; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .r { font-family: var(--mono); font-size: 12px; color: var(--muted); text-align: right; white-space: nowrap; }
+  .row.block { background: rgba(255,59,82,0.12); border: 1px solid rgba(255,59,82,0.35); }
+  .row.block .d { background: var(--red); box-shadow: 0 0 12px var(--red); }
+  .row.block .h { color: #ff8a98; }
+  .row.block .r { color: #fff; background: var(--red); padding: 3px 7px; border-radius: 6px; font-weight: 700; letter-spacing: 0.06em; }
+
+  #panel footer { padding: 12px 18px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+  #panel footer a { color: var(--muted); }
+
+  #legend { position: absolute; left: 28px; bottom: 24px; z-index: 5; display: flex; gap: 18px; font-size: 13px; color: var(--muted); }
+  #legend i { display: inline-block; width: 22px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 7px; }
+
+  #toast {
+    position: absolute; top: 96px; left: calc((100% - 400px) / 2); transform: translate(-50%, 0) scale(0.9);
+    z-index: 6; min-width: 380px; padding: 16px 22px; border-radius: 16px; text-align: center;
+    background: rgba(40, 6, 14, 0.82); border: 1px solid rgba(255,59,82,0.7);
+    box-shadow: 0 0 60px rgba(255,59,82,0.35); opacity: 0; transition: opacity 0.25s, transform 0.35s cubic-bezier(.2,.9,.3,1.3);
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0) scale(1); animation: shake 0.45s 0.1s; }
+  @keyframes shake { 20% { margin-left: -8px; } 40% { margin-left: 7px; } 60% { margin-left: -5px; } 80% { margin-left: 3px; } }
+  #toast .t1 { font-size: 13px; font-weight: 800; letter-spacing: 0.3em; color: var(--red); }
+  #toast .t2 { font-family: var(--mono); font-size: 26px; font-weight: 700; margin-top: 6px; }
+  #toast .t3 { font-size: 13px; color: #ffb3bd; margin-top: 6px; font-family: var(--mono); }
+
+  .glabel { pointer-events: none; }
+  .glabel .in { transform: translate(-50%, calc(-100% - 10px)); white-space: nowrap; font-family: var(--mono); font-size: 12px; padding: 3px 8px; border-radius: 6px; background: rgba(6, 12, 30, 0.78); border: 1px solid rgba(63,216,255,0.35); color: #cfefff; }
+  .glabel.block .in { background: rgba(60, 5, 16, 0.9); border-color: var(--red); color: #fff; font-weight: 700; }
+  .glabel.home .in { border-color: rgba(93,255,176,0.5); color: #d9ffe9; }
+</style>
+</head>
+<body>
+<div id="globe"></div>
+
+<header id="brand">
+  <div class="logo">
+    <svg viewBox="0 0 32 32" fill="none" stroke="#3fd8ff" stroke-width="1.6">
+      <circle cx="16" cy="16" r="13.5" opacity="0.45"/><circle cx="16" cy="16" r="8.5" opacity="0.7"/><circle cx="16" cy="16" r="2.2" fill="#3fd8ff"/>
+      <path d="M16 16 L27 9" stroke="#5dffb0" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+    <span>egressmap</span>
+  </div>
+  <div class="status"><span id="live-dot" class="dot live"></span><span id="status-text">watching</span><code id="cmd">…</code><span id="elapsed">00:00</span></div>
+</header>
+
+<aside id="panel">
+  <div class="panel-head">Where your agent went</div>
+  <div class="stats">
+    <div class="stat"><b id="s-servers">0</b><span>servers</span></div>
+    <div class="stat"><b id="s-conns">0</b><span>connections</span></div>
+    <div class="stat"><b id="s-sent">0 B</b><span>sent</span></div>
+    <div class="stat blocked" id="s-blocked-box"><b id="s-blocked">0</b><span>blocked</span></div>
+  </div>
+  <ul id="hosts"></ul>
+  <footer><span id="mode"></span><a href="https://db-ip.com" target="_blank" rel="noopener">IP Geolocation by DB-IP</a></footer>
+</aside>
+
+<div id="legend"><span><i style="background:linear-gradient(90deg,#3fd8ff,#5dffb0)"></i>allowed</span><span><i style="background:#ff3b52"></i>blocked</span></div>
+
+<div id="toast"><div class="t1">BLOCKED</div><div class="t2" id="toast-host"></div><div class="t3" id="toast-sub"></div></div>
+
+<script src="vendor/globe.gl.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

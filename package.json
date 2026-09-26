@@ -1,0 +1,42 @@
+{
+  "name": "egressmap",
+  "version": "0.1.0",
+  "description": "See every server your AI coding agent talks to, live on a 3D globe. Block the ones you didn't allow.",
+  "type": "module",
+  "bin": {
+    "egressmap": "bin/egressmap.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "public",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "ai-agent",
+    "claude-code",
+    "codex",
+    "security",
+    "egress",
+    "proxy",
+    "allowlist",
+    "globe"
+  ],
+  "author": "Vibhor Gautam",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/VibhorGautam/egressmap.git"
+  },
+  "dependencies": {
+    "mmdb-lib": "3.0.3"
+  }
+}
