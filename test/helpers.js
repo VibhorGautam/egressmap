@@ -2,13 +2,15 @@ const u16 = (n) => Buffer.from([(n >> 8) & 255, n & 255]);
 const u24 = (n) => Buffer.from([(n >> 16) & 255, (n >> 8) & 255, n & 255]);
 
 // A minimal but well-formed TLS 1.2/1.3 ClientHello record, optionally with SNI.
-export function clientHello(sni) {
+// {twice: true} repeats the SNI extension; {badListLength: true} lies about its size.
+export function clientHello(sni, {twice = false, badListLength = false} = {}) {
   let exts = Buffer.alloc(0);
   if (sni) {
     const name = Buffer.from(sni, 'latin1');
     const entry = Buffer.concat([Buffer.from([0]), u16(name.length), name]);
-    const list = Buffer.concat([u16(entry.length), entry]);
-    exts = Buffer.concat([u16(0x0000), u16(list.length), list]);
+    const list = Buffer.concat([u16(entry.length + (badListLength ? 40 : 0)), entry]);
+    const ext = Buffer.concat([u16(0x0000), u16(list.length), list]);
+    exts = twice ? Buffer.concat([ext, ext]) : ext;
   }
   const body = Buffer.concat([
     Buffer.from([0x03, 0x03]),

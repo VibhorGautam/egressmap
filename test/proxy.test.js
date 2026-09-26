@@ -38,9 +38,9 @@ function rawConnect(port, target) {
   });
 }
 
-async function echoServer(t) {
+async function echoServer(t, host = '127.0.0.1') {
   const echo = net.createServer((s) => s.pipe(s));
-  await new Promise((r) => echo.listen(0, '127.0.0.1', r));
+  await new Promise((r) => (host ? echo.listen(0, host, r) : echo.listen(0, r)));
   t.after(() => echo.close());
   return echo.address().port;
 }
@@ -90,6 +90,17 @@ test('a tunnel whose TLS name differs from the CONNECT host is blocked', async (
   assert.equal(ev.kind, 'block');
   assert.match(ev.rule, /evil\.example does not match/);
   assert.equal(ev.up, 0);
+});
+
+test('a tunnel to a hostname with no TLS server name is blocked', async (t) => {
+  const echoPort = await echoServer(t, null);
+  const {port, nextEvent} = await startProxy(t);
+  const {socket} = await rawConnect(port, `localhost:${echoPort}`);
+  socket.write(clientHello(null));
+  await closed(socket);
+  const ev = await nextEvent();
+  assert.equal(ev.kind, 'block');
+  assert.equal(ev.rule, 'TLS hello has no server name');
 });
 
 test('a tunnel that is not TLS is blocked', async (t) => {

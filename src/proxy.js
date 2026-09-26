@@ -119,6 +119,7 @@ export function createProxy({policy}) {
     }
     const upstream = net.connect({host, port});
     let connected = false;
+    let closed = false;
     upstream.on('error', async (err) => {
       if (connected) {
         client.destroy();
@@ -135,14 +136,24 @@ export function createProxy({policy}) {
       client.write('HTTP/1.1 200 Connection Established\r\n\r\n');
       // Nothing reaches the server until the TLS ClientHello names the host we allowed.
       const hello = await readClientHello(client, head);
+      ev.proc = await procP;
+      // The client left before sending anything: record the attempt, forward nothing.
+      if (hello.closed || closed) {
+        events.emit('event', ev);
+        return;
+      }
+      // A hostname target needs a matching SNI. Only IP targets may omit it.
       const reason = !hello.tls
         ? 'tunnel is not TLS'
         : hello.unreadable
           ? 'unreadable TLS ClientHello'
-          : hello.sni && !sameHost(hello.sni, host)
-            ? `TLS name ${hello.sni} does not match`
-            : null;
-      ev.proc = await procP;
+          : !hello.sni
+            ? net.isIP(host)
+              ? null
+              : 'TLS hello has no server name'
+            : !sameHost(hello.sni, host)
+              ? `TLS name ${hello.sni} does not match`
+              : null;
       if (reason) {
         ev.kind = 'block';
         ev.rule = reason;
@@ -161,6 +172,7 @@ export function createProxy({policy}) {
       events.emit('event', ev);
     });
     const done = () => {
+      closed = true;
       if (open.delete(ev)) events.emit('close', ev);
       upstream.destroy();
       client.destroy();

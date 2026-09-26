@@ -169,7 +169,7 @@ async function main() {
     // Give the proxy a moment to see the child's sockets close and finish process
     // lookups, so the summary has every event and final byte counts.
     await new Promise((r) => setTimeout(r, 250));
-    await proxy.drain(1500);
+    await proxy.drain(2500);
     dash.markExit(code ?? signal);
     printSummary(dash.snapshot(), Math.round((Date.now() - meta.startedAt) / 1000));
     log(`session log: ${sessionFile}`);

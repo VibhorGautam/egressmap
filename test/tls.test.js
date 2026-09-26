@@ -25,6 +25,14 @@ test('plain text is not TLS', () => {
   assert.deepEqual([r.tls, r.complete], [false, true]);
 });
 
+test('a hello that names the server twice is unreadable', () => {
+  assert.equal(parseClientHello(clientHello('github.com', {twice: true})).unreadable, true);
+});
+
+test('an SNI list that claims more bytes than it has is unreadable', () => {
+  assert.equal(parseClientHello(clientHello('github.com', {badListLength: true})).unreadable, true);
+});
+
 test('a TLS header with garbage inside is unreadable, not trusted', () => {
   const junk = Buffer.concat([Buffer.from([0x16, 0x03, 0x01, 0x00, 0x08]), Buffer.from([0x01, 0, 0, 4, 9, 9, 9, 9])]);
   const r = parseClientHello(junk);

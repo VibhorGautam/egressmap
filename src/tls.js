@@ -15,24 +15,41 @@ export function parseClientHello(buf) {
     p += 1 + record[p]; // session id
     p += 2 + record.readUInt16BE(p); // cipher suites
     p += 1 + record[p]; // compression methods
+    const unreadable = {tls: true, complete: true, sni: null, unreadable: true};
     const extEnd = p + 2 + record.readUInt16BE(p);
-    if (extEnd > end) return {tls: true, complete: true, sni: null, unreadable: true};
+    if (extEnd > end) return unreadable;
     p += 2;
-    while (p + 4 <= extEnd) {
+    // Every length is checked against its container, and a hello that names
+    // more than 1 server is rejected, so upstream can't read it differently.
+    let sni = null;
+    let sawSni = false;
+    while (p < extEnd) {
+      if (p + 4 > extEnd) return unreadable;
       const type = record.readUInt16BE(p);
       const len = record.readUInt16BE(p + 2);
       p += 4;
+      if (p + len > extEnd) return unreadable;
       if (type === 0x0000) {
+        if (sawSni || len < 2) return unreadable;
+        sawSni = true;
+        const listEnd = p + 2 + record.readUInt16BE(p);
+        if (listEnd !== p + len) return unreadable;
         let q = p + 2;
-        while (q + 3 <= p + len) {
+        while (q < listEnd) {
+          if (q + 3 > listEnd) return unreadable;
           const nameLen = record.readUInt16BE(q + 1);
-          if (record[q] === 0) return {tls: true, complete: true, sni: record.toString('latin1', q + 3, q + 3 + nameLen)};
+          if (q + 3 + nameLen > listEnd) return unreadable;
+          if (record[q] === 0) {
+            if (sni !== null) return unreadable;
+            sni = record.toString('latin1', q + 3, q + 3 + nameLen);
+          }
           q += 3 + nameLen;
         }
+        if (sni === null) return unreadable;
       }
       p += len;
     }
-    return {tls: true, complete: true, sni: null};
+    return {tls: true, complete: true, sni};
   } catch {
     // A ClientHello split across records, or garbage: we can't vouch for it.
     return {tls: true, complete: true, sni: null, unreadable: true};
@@ -63,7 +80,7 @@ export function readClientHello(socket, head) {
       buf = Buffer.concat([buf, chunk]);
       check();
     };
-    const onClose = () => finish({tls: false, complete: true, sni: null});
+    const onClose = () => finish({tls: false, complete: true, sni: null, closed: true});
     const timer = setTimeout(() => finish({tls: false, complete: true, sni: null}), 5000);
     socket.on('data', onData);
     socket.on('close', onClose);
